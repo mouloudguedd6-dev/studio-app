@@ -1,0 +1,16 @@
+.appContainer {
+  display: flex;
+  min-height: 100vh;
+}
+
+.mainContent {
+  flex: 1;
+  margin-left: 260px; /* matches sidebar width */
+  min-height: 100vh;
+}
+
+.pageWrapper {
+  padding: 2.5rem 3rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}

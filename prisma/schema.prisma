@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  password      String?
+  daProfile     DaProfile?
+  audioRecords  AudioRecord[]
+  collections   Collection[]
+  studioSessions StudioSession[]
+}
+
+model DaProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artistsRef        String?
+  moods             String?
+  instrumentalStyles String?
+  influences        String?
+}
+
+model AudioRecord {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  filePath      String
+  duration      Int?
+  createdAt     DateTime @default(now())
+  status        String   @default("pending")
+  transcription Transcription?
+}
+
+model Transcription {
+  id            String   @id @default(cuid())
+  audioRecordId String   @unique
+  audioRecord   AudioRecord @relation(fields: [audioRecordId], references: [id], onDelete: Cascade)
+  rawText       String?
+  cleanText     String?
+  segments      Segment[]
+}
+
+model Segment {
+  id              String   @id @default(cuid())
+  transcriptionId String
+  transcription   Transcription @relation(fields: [transcriptionId], references: [id], onDelete: Cascade)
+  startTime       Float
+  endTime         Float
+  text            String
+  energyScore     Int?
+  impactScore     Int?
+  themes          Theme[]
+  collections     Collection[]
+  studioPackSegments StudioPackSegment[]
+}
+
+model Theme {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  segments Segment[]
+}
+
+model Collection {
+  id       String    @id @default(cuid())
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name     String
+  type     String    @default("favorites")
+  segments Segment[]
+}
+
+model StudioSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime
+  intention String?
+  studioPacks StudioPack[]
+}
+
+model StudioPack {
+  id              String   @id @default(cuid())
+  studioSessionId String
+  studioSession   StudioSession @relation(fields: [studioSessionId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  name            String
+  packSegments    StudioPackSegment[]
+  maquettes       Maquette[]
+}
+
+model StudioPackSegment {
+  id           String     @id @default(cuid())
+  studioPackId String
+  studioPack   StudioPack @relation(fields: [studioPackId], references: [id], onDelete: Cascade)
+  segmentId    String
+  segment      Segment    @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  order        Int
+  role         String?    // e.g., "Refrain", "Couplet"
+}
+
+model Instrumental {
+  id          String     @id @default(cuid())
+  name        String
+  youtubeUrl  String?
+  localPath   String?
+  bpm         Int?
+  maquettes   Maquette[]
+}
+
+model Maquette {
+  id             String        @id @default(cuid())
+  studioPackId   String
+  studioPack     StudioPack    @relation(fields: [studioPackId], references: [id], onDelete: Cascade)
+  instrumentalId String
+  instrumental   Instrumental  @relation(fields: [instrumentalId], references: [id])
+  variant        String        // e.g., "A", "B"
+  yaourtAudios   YaourtAudio[]
+}
+
+model YaourtAudio {
+  id         String   @id @default(cuid())
+  maquetteId String
+  maquette   Maquette @relation(fields: [maquetteId], references: [id], onDelete: Cascade)
+  filePath   String
+  createdAt  DateTime @default(now())
+}
