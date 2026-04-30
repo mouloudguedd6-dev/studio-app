@@ -3,14 +3,22 @@
 import { useState } from "react"
 import { Play, BookmarkPlus, BookmarkCheck } from "lucide-react"
 import { toggleFavoriteSegment } from "../../actions/collection"
+import { playAudioExclusively } from "@/lib/audio-playback"
 import styles from "./textDetail.module.css"
+
+type SegmentRowData = {
+  id: string
+  startTime: number
+  endTime: number
+  text: string
+}
 
 export default function SegmentRow({ 
   segment, 
   audioPath,
   isInitiallyFavorited 
 }: { 
-  segment: any, 
+  segment: SegmentRowData, 
   audioPath: string,
   isInitiallyFavorited: boolean 
 }) {
@@ -23,10 +31,10 @@ export default function SegmentRow({
     await toggleFavoriteSegment(segment.id)
   }
 
-  const playSegment = () => {
+  const playSegment = async () => {
     const audio = new Audio(`/api/audio/${audioPath}`)
     audio.currentTime = segment.startTime
-    audio.play()
+    await playAudioExclusively(audio)
     setIsPlaying(true)
     
     setTimeout(() => {

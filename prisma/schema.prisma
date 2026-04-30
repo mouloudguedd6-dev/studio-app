@@ -38,6 +38,7 @@ model AudioRecord {
   fileSize      Int?
   mimeType      String?
   format        String?
+  checksum      String?
   createdAt     DateTime @default(now())
   status        String   @default("pending")
   transcription Transcription?

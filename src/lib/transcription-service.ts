@@ -20,7 +20,7 @@ const globalForWorker = globalThis as unknown as {
   transcriptionWorkerScheduled?: boolean
 }
 
-export async function createTranscriptionJob(audioId: string, userId: string) {
+export async function createTranscriptionJob(audioId: string, userId: string, options: { force?: boolean } = {}) {
   const audio = await prisma.audioRecord.findFirst({
     where: { id: audioId, userId },
     include: {
@@ -40,7 +40,7 @@ export async function createTranscriptionJob(audioId: string, userId: string) {
     throw new Error("Audio not found")
   }
 
-  if (audio.status === "transcribed") {
+  if (audio.status === "transcribed" && !options.force) {
     throw new Error("Already transcribed")
   }
 
@@ -51,6 +51,22 @@ export async function createTranscriptionJob(audioId: string, userId: string) {
   }
 
   const job = await prisma.$transaction(async (tx) => {
+    if (options.force) {
+      await tx.transcriptionJob.updateMany({
+        where: {
+          audioId: audio.id,
+          status: {
+            in: [TranscriptionJobStatus.PENDING, TranscriptionJobStatus.PROCESSING],
+          },
+        },
+        data: {
+          status: TranscriptionJobStatus.FAILED,
+          progress: 100,
+          error: "Cancelled by retranscription request.",
+        },
+      })
+    }
+
     const createdJob = await tx.transcriptionJob.create({
       data: {
         audioId: audio.id,

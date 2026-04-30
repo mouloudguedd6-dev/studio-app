@@ -100,6 +100,11 @@
   border-color: rgba(91, 50, 245, 0.4);
 }
 
+.card:target {
+  border-color: rgba(255, 170, 0, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 170, 0, 0.2);
+}
+
 .cardHeader {
   display: flex;
   align-items: center;
@@ -120,9 +125,14 @@
 .cardTitle {
   font-size: 1rem;
   font-weight: 600;
-  white-space: nowrap;
+  display: -webkit-box;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.25;
+  word-break: break-word;
 }
 
 .cardMeta {
@@ -131,6 +141,80 @@
   align-items: center;
   font-size: 0.8rem;
   color: var(--text-secondary);
+}
+
+.duplicateFilterBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.duplicateFilterInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.filterBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  color: var(--text-color);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.filterBtn:hover,
+.filterBtnActive {
+  border-color: rgba(255, 170, 0, 0.45);
+  background: rgba(255, 170, 0, 0.1);
+}
+
+.duplicateHint {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid rgba(255, 170, 0, 0.25);
+  border-radius: 6px;
+  background: rgba(255, 170, 0, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.duplicateHint a {
+  color: #ffca55;
+  text-decoration: none;
+}
+
+.duplicateHint a:hover {
+  text-decoration: underline;
+}
+
+.duplicateBadge {
+  width: fit-content;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(255, 170, 0, 0.15);
+  color: #ffca55;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .statusBadge {
@@ -240,13 +324,50 @@
   background: rgba(0, 200, 83, 0.2) !important;
 }
 
+.transcribedActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.secondaryActionBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.secondaryActionBtn:hover:not(:disabled) {
+  color: var(--text-color);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.secondaryActionBtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.transcriptionError {
+  width: 100%;
+  color: #ff6b6b;
+  font-size: 0.72rem;
+  text-align: right;
+}
+
 /* ─── Upload Progress ─────────────────────────── */
 
 .uploadSection {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  min-width: 280px;
+  min-width: min(520px, 100%);
 }
 
 .uploadProgress {
@@ -329,6 +450,9 @@
 }
 
 .retryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   background: rgba(255,68,68,0.1);
   border: 1px solid rgba(255,68,68,0.3);
   color: #ff4444;
@@ -337,6 +461,90 @@
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: 600;
+}
+
+.uploadQueue {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 280px;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.queueItem {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.55rem 0.65rem;
+  background: rgba(255,255,255,0.03);
+}
+
+.queueItem[data-status="success"] {
+  border-color: rgba(0, 200, 83, 0.25);
+}
+
+.queueItem[data-status="error"],
+.queueItem[data-status="ignored"] {
+  border-color: rgba(255, 68, 68, 0.25);
+}
+
+.queueItem[data-status="uploading"] {
+  border-color: rgba(33, 150, 243, 0.35);
+}
+
+.queueItem[data-status="duplicate"] {
+  border-color: rgba(255, 170, 0, 0.35);
+  background: rgba(255, 170, 0, 0.07);
+}
+
+.queueItem[data-status="replaced"],
+.queueItem[data-status="copy"] {
+  border-color: rgba(0, 200, 83, 0.25);
+}
+
+.queueInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.queueTitle {
+  color: var(--text-color);
+  font-size: 0.82rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queueMeta,
+.queueNote {
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+}
+
+.queueNote {
+  color: #ffaa00;
+}
+
+.queueError {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #ff6b6b;
+  font-size: 0.74rem;
+}
+
+.duplicateActions,
+.duplicateBulkActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.duplicateBulkActions {
+  padding-top: 0.25rem;
 }
 
 /* ─── Transcribing state ──────────────────────── */
@@ -387,4 +595,16 @@
 .statusBadge.transcribing {
   background: rgba(33, 150, 243, 0.1);
   color: #2196f3;
+}
+
+@media (max-width: 720px) {
+  .header,
+  .duplicateFilterBar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filterBtn {
+    width: 100%;
+  }
 }

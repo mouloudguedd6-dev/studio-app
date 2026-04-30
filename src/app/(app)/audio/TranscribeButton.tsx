@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { FileText, Loader2, AlertCircle, RefreshCw } from "lucide-react"
+import { AlertCircle, FileText, Loader2, RefreshCw } from "lucide-react"
 import styles from "./audio.module.css"
 
 export default function TranscribeButton({
@@ -13,7 +13,7 @@ export default function TranscribeButton({
   initialStatus: string
 }) {
   const [status, setStatus] = useState(initialStatus)
-  const [isTranscribing, setIsTranscribing] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [jobId, setJobId] = useState<string | null>(null)
   const [progress, setProgress] = useState(initialStatus === "transcribed" ? 100 : 0)
@@ -34,7 +34,7 @@ export default function TranscribeButton({
         if (!res.ok) {
           setError(data.error || "Erreur de statut")
           setStatus("error")
-          setIsTranscribing(false)
+          setIsSubmitting(false)
           return
         }
 
@@ -43,7 +43,7 @@ export default function TranscribeButton({
 
         if (data.status === "transcribed" || data.jobStatus === "DONE") {
           setStatus("transcribed")
-          setIsTranscribing(false)
+          setIsSubmitting(false)
           router.refresh()
           return
         }
@@ -51,7 +51,7 @@ export default function TranscribeButton({
         if (data.status === "error" || data.jobStatus === "FAILED") {
           setError(data.error || "Erreur de transcription")
           setStatus("error")
-          setIsTranscribing(false)
+          setIsSubmitting(false)
           return
         }
 
@@ -70,17 +70,23 @@ export default function TranscribeButton({
     }
   }, [audioId, jobId, router, status])
 
-  const handleTranscribe = async () => {
-    setIsTranscribing(true)
+  const startTranscription = async (force = false) => {
+    if (force) {
+      const confirmed = window.confirm("Relancer la transcription ? L'ancien texte sera remplacé.")
+      if (!confirmed) return
+    }
+
+    setIsSubmitting(true)
     setError("")
     setStatus("transcribing")
     setProgress(0)
+    setJobId(null)
 
     try {
       const res = await fetch("/api/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audioId }),
+        body: JSON.stringify({ audioId, force }),
       })
 
       const data = await res.json()
@@ -88,36 +94,44 @@ export default function TranscribeButton({
       if (res.ok) {
         setJobId(data.jobId)
         setProgress(data.progress || 0)
-      } else {
-        setError(data.error || "Erreur de transcription")
-        setStatus("error")
-        setIsTranscribing(false)
+        return
       }
+
+      setError(data.error || "Erreur de transcription")
+      setStatus(force ? "transcribed" : "error")
+      setIsSubmitting(false)
     } catch {
       setError("Erreur réseau")
-      setStatus("error")
-      setIsTranscribing(false)
+      setStatus(force ? "transcribed" : "error")
+      setIsSubmitting(false)
     }
   }
 
   if (status === "transcribed") {
     return (
-      <button
-        className={`${styles.actionBtn} ${styles.actionBtnSuccess}`}
-        onClick={() => router.push(`/texts/${audioId}`)}
-      >
-        <FileText size={16} />
-        <span>Voir le texte</span>
-      </button>
+      <div className={styles.transcribedActions}>
+        <button
+          className={`${styles.actionBtn} ${styles.actionBtnSuccess}`}
+          onClick={() => router.push(`/texts/${audioId}`)}
+        >
+          <FileText size={16} />
+          <span>Voir le texte</span>
+        </button>
+        <button className={styles.secondaryActionBtn} onClick={() => startTranscription(true)} disabled={isSubmitting}>
+          {isSubmitting ? <Loader2 size={14} className={styles.spinner} /> : <RefreshCw size={14} />}
+          <span>Relancer</span>
+        </button>
+        {error && <span className={styles.transcriptionError}>{error}</span>}
+      </div>
     )
   }
 
-  if (status === "transcribing" || isTranscribing) {
+  if (status === "transcribing") {
     return (
       <div className={styles.transcribingState}>
         <Loader2 size={16} className={styles.spinner} />
         <span>Transcription en cours… {progress}%</span>
-        <span className={styles.transcribingNote}>Les longs fichiers peuvent prendre plusieurs minutes</span>
+        <span className={styles.transcribingNote}>Job actif, relance désactivée</span>
       </div>
     )
   }
@@ -127,16 +141,17 @@ export default function TranscribeButton({
       <div className={styles.errorState}>
         <AlertCircle size={16} />
         <span>{error || "Erreur"}</span>
-        <button className={styles.retryInlineBtn} onClick={handleTranscribe}>
-          <RefreshCw size={14} /> Réessayer
+        <button className={styles.retryInlineBtn} onClick={() => startTranscription(true)} disabled={isSubmitting}>
+          {isSubmitting ? <Loader2 size={14} className={styles.spinner} /> : <RefreshCw size={14} />}
+          Réessayer
         </button>
       </div>
     )
   }
 
   return (
-    <button className={styles.actionBtn} onClick={handleTranscribe}>
-      <FileText size={16} />
+    <button className={styles.actionBtn} onClick={() => startTranscription(false)} disabled={isSubmitting}>
+      {isSubmitting ? <Loader2 size={16} className={styles.spinner} /> : <FileText size={16} />}
       <span>Transcrire</span>
     </button>
   )

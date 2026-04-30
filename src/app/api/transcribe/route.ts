@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { audioId } = await request.json()
+    const { audioId, force } = await request.json()
     if (!audioId || typeof audioId !== "string") {
       return NextResponse.json({ error: "No audio ID provided" }, { status: 400 })
     }
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const user = await prisma.user.findUnique({ where: { email: session.user.email } })
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
 
-    const job = await createTranscriptionJob(audioId, user.id)
+    const job = await createTranscriptionJob(audioId, user.id, { force: force === true })
 
     return NextResponse.json({
       success: true,

@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { probeAudioDurationSeconds } from "@/lib/audio-metadata"
 import { MAX_AUDIO_UPLOAD_BYTES, StorageService } from "@/lib/storage"
+import { createHash } from "crypto"
 import { Readable } from "stream"
 import { pipeline } from "stream/promises"
 import type { ReadableStream as NodeReadableStream } from "stream/web"
@@ -19,6 +20,8 @@ type UploadedAudio = {
   fileSize: number
   format: string
   mimeType: string
+  checksum: string
+  replaceAudioId?: string
 }
 
 class UploadError extends Error {
@@ -52,24 +55,63 @@ export async function POST(request: Request) {
     uploadedFile = await streamMultipartAudio(request, uploadId)
     const duration = await probeAudioDurationSeconds(uploadedFile.filepath)
 
+    const replaceRecord = uploadedFile.replaceAudioId
+      ? await prisma.audioRecord.findFirst({
+          where: { id: uploadedFile.replaceAudioId, userId: user.id },
+          include: { transcription: true },
+        })
+      : null
+
+    if (uploadedFile.replaceAudioId && !replaceRecord) {
+      await StorageService.remove(uploadedFile.filepath)
+      uploadedFile = null
+      return NextResponse.json({ error: "Audio to replace not found or access denied" }, { status: 404 })
+    }
+
     try {
-      const audioRecord = await prisma.audioRecord.create({
-        data: {
-          userId: user.id,
-          title: uploadedFile.originalName,
-          filePath: uploadedFile.filename,
-          duration,
-          fileSize: uploadedFile.fileSize,
-          mimeType: uploadedFile.mimeType,
-          format: uploadedFile.format,
-          status: "pending",
-        },
-      })
+      const audioRecord = replaceRecord
+        ? await prisma.$transaction(async (tx) => {
+            await tx.transcription.deleteMany({ where: { audioRecordId: replaceRecord.id } })
+            await tx.transcriptionJob.deleteMany({ where: { audioId: replaceRecord.id } })
+
+            return tx.audioRecord.update({
+              where: { id: replaceRecord.id },
+              data: {
+                title: uploadedFile!.originalName,
+                filePath: uploadedFile!.filename,
+                duration,
+                fileSize: uploadedFile!.fileSize,
+                mimeType: uploadedFile!.mimeType,
+                format: uploadedFile!.format,
+                checksum: uploadedFile!.checksum,
+                status: "pending",
+              },
+            })
+          })
+        : await prisma.audioRecord.create({
+            data: {
+              userId: user.id,
+              title: uploadedFile.originalName,
+              filePath: uploadedFile.filename,
+              duration,
+              fileSize: uploadedFile.fileSize,
+              mimeType: uploadedFile.mimeType,
+              format: uploadedFile.format,
+              checksum: uploadedFile.checksum,
+              status: "pending",
+            },
+          })
+
+      if (replaceRecord) {
+        await StorageService.remove(replaceRecord.filePath)
+      }
 
       console.info(`[upload:${uploadId}] db record created`, {
         audioId: audioRecord.id,
         filename: uploadedFile.filename,
         bytes: uploadedFile.fileSize,
+        checksum: uploadedFile.checksum,
+        replacedAudioId: replaceRecord?.id,
       })
 
       return NextResponse.json({
@@ -120,6 +162,8 @@ async function streamMultipartAudio(request: Request, uploadId: string): Promise
 
     let fileSeen = false
     let fileSettled = false
+    let requestedTitle = ""
+    let replaceAudioId = ""
     let storedFile: ReturnType<typeof StorageService.createStoredAudioFile> | null = null
     let fileWritePromise: Promise<UploadedAudio> | null = null
     let nodeStream: Readable | null = null
@@ -167,6 +211,7 @@ async function streamMultipartAudio(request: Request, uploadId: string): Promise
       }
 
       let fileSize = 0
+      const hash = createHash("sha256")
       const writeStream = StorageService.createWriteStream(storedFile.filepath)
 
       console.info(`[upload:${uploadId}] file received`, {
@@ -177,6 +222,7 @@ async function streamMultipartAudio(request: Request, uploadId: string): Promise
 
       file.on("data", (chunk: Buffer) => {
         fileSize += chunk.length
+        hash.update(chunk)
       })
 
       file.on("limit", () => {
@@ -206,6 +252,7 @@ async function streamMultipartAudio(request: Request, uploadId: string): Promise
           fileSize,
           format: storedFile.format,
           mimeType: storedFile.mimeType,
+          checksum: hash.digest("hex"),
         }
       })
 
@@ -218,6 +265,15 @@ async function streamMultipartAudio(request: Request, uploadId: string): Promise
 
     busboy.on("filesLimit", () => {
       fail(new UploadError("Only one audio file can be uploaded"))
+    })
+
+    busboy.on("field", (fieldname, value) => {
+      if (fieldname === "title") {
+        requestedTitle = value.slice(0, 240)
+      }
+      if (fieldname === "replaceAudioId") {
+        replaceAudioId = value
+      }
     })
 
     busboy.on("error", (error) => {
@@ -237,6 +293,8 @@ async function streamMultipartAudio(request: Request, uploadId: string): Promise
         }
 
         const uploadedFile = await fileWritePromise
+        uploadedFile.originalName = requestedTitle.trim() || uploadedFile.originalName
+        uploadedFile.replaceAudioId = replaceAudioId || undefined
         fileSettled = true
         resolve(uploadedFile)
       } catch (error) {
