@@ -1,10 +1,11 @@
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import styles from "./audio.module.css"
 import UploadForm from "./UploadForm"
 import TranscribeButton from "./TranscribeButton"
-import { Mic2, Play, FileText, Clock } from "lucide-react"
+import DeleteAudioButton from "./DeleteAudioButton"
+import { Mic2, Clock } from "lucide-react"
 
 export default async function AudioLibraryPage() {
   const session = await getServerSession(authOptions)
@@ -70,6 +71,7 @@ export default async function AudioLibraryPage() {
                 </div>
 
                 <div className={styles.cardActions}>
+                  <DeleteAudioButton audioId={audio.id} title={audio.title} />
                   <TranscribeButton audioId={audio.id} initialStatus={audio.status} />
                 </div>
               </div>

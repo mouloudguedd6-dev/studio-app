@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { FileText, Loader2, AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
+import { FileText, Loader2, AlertCircle, RefreshCw } from "lucide-react"
 import styles from "./audio.module.css"
 
 export default function TranscribeButton({
@@ -15,12 +15,66 @@ export default function TranscribeButton({
   const [status, setStatus] = useState(initialStatus)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [error, setError] = useState("")
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [progress, setProgress] = useState(initialStatus === "transcribed" ? 100 : 0)
   const router = useRouter()
+
+  useEffect(() => {
+    if (status !== "transcribing") return
+
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const query = jobId ? `id=${jobId}` : `audioId=${audioId}`
+        const res = await fetch(`/api/transcription-status?${query}`)
+        const data = await res.json()
+
+        if (cancelled) return
+
+        if (!res.ok) {
+          setError(data.error || "Erreur de statut")
+          setStatus("error")
+          setIsTranscribing(false)
+          return
+        }
+
+        if (data.jobId) setJobId(data.jobId)
+        setProgress(data.progress || 0)
+
+        if (data.status === "transcribed" || data.jobStatus === "DONE") {
+          setStatus("transcribed")
+          setIsTranscribing(false)
+          router.refresh()
+          return
+        }
+
+        if (data.status === "error" || data.jobStatus === "FAILED") {
+          setError(data.error || "Erreur de transcription")
+          setStatus("error")
+          setIsTranscribing(false)
+          return
+        }
+
+        window.setTimeout(poll, 1500)
+      } catch {
+        if (!cancelled) {
+          window.setTimeout(poll, 3000)
+        }
+      }
+    }
+
+    poll()
+
+    return () => {
+      cancelled = true
+    }
+  }, [audioId, jobId, router, status])
 
   const handleTranscribe = async () => {
     setIsTranscribing(true)
     setError("")
     setStatus("transcribing")
+    setProgress(0)
 
     try {
       const res = await fetch("/api/transcribe", {
@@ -32,16 +86,16 @@ export default function TranscribeButton({
       const data = await res.json()
 
       if (res.ok) {
-        setStatus("transcribed")
-        router.refresh()
+        setJobId(data.jobId)
+        setProgress(data.progress || 0)
       } else {
         setError(data.error || "Erreur de transcription")
         setStatus("error")
+        setIsTranscribing(false)
       }
-    } catch (err) {
+    } catch {
       setError("Erreur réseau")
       setStatus("error")
-    } finally {
       setIsTranscribing(false)
     }
   }
@@ -62,7 +116,7 @@ export default function TranscribeButton({
     return (
       <div className={styles.transcribingState}>
         <Loader2 size={16} className={styles.spinner} />
-        <span>Transcription en cours…</span>
+        <span>Transcription en cours… {progress}%</span>
         <span className={styles.transcribingNote}>Les longs fichiers peuvent prendre plusieurs minutes</span>
       </div>
     )

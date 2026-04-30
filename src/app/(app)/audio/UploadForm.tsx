@@ -7,6 +7,9 @@ import styles from "./audio.module.css"
 
 type UploadState = "idle" | "uploading" | "success" | "error"
 
+const MAX_AUDIO_UPLOAD_BYTES = 500 * 1024 * 1024
+const ALLOWED_AUDIO_EXTENSIONS = /\.(mp3|m4a|wav)$/i
+
 function formatBytes(bytes: number) {
   if (bytes === 0) return "0 B"
   const k = 1024
@@ -43,9 +46,14 @@ export default function UploadForm() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate audio type
-    if (!file.type.startsWith("audio/") && !file.name.match(/\.(mp3|m4a|wav|ogg|flac|aac|opus|wma)$/i)) {
-      setErrorMessage("Format non supporté. Utilisez MP3, M4A, WAV, OGG ou FLAC.")
+    if (!ALLOWED_AUDIO_EXTENSIONS.test(file.name)) {
+      setErrorMessage("Format non supporté. Utilisez MP3, M4A ou WAV.")
+      setState("error")
+      return
+    }
+
+    if (file.size > MAX_AUDIO_UPLOAD_BYTES) {
+      setErrorMessage("Fichier trop volumineux. Limite actuelle : 500 MB.")
       setState("error")
       return
     }
@@ -62,6 +70,7 @@ export default function UploadForm() {
     // Use XHR instead of fetch for upload progress tracking
     const xhr = new XMLHttpRequest()
     xhrRef.current = xhr
+    xhr.timeout = 0
 
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable) {
@@ -87,15 +96,18 @@ export default function UploadForm() {
         } catch {}
         setErrorMessage(errMsg)
         setState("error")
+        xhrRef.current = null
       }
     })
 
     xhr.addEventListener("error", () => {
-      setErrorMessage("Erreur réseau — vérifiez votre connexion")
+      setErrorMessage("Upload interrompu avant la fin. Réessayez avec une connexion stable.")
       setState("error")
+      xhrRef.current = null
     })
 
     xhr.addEventListener("abort", () => {
+      xhrRef.current = null
       reset()
     })
 
@@ -107,7 +119,7 @@ export default function UploadForm() {
     <div className={styles.uploadSection}>
       <input
         type="file"
-        accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac,.aac,.opus,.wma"
+        accept=".mp3,.m4a,.wav,audio/mpeg,audio/mp4,audio/wav"
         style={{ display: "none" }}
         ref={fileInputRef}
         onChange={handleFileChange}
@@ -138,7 +150,7 @@ export default function UploadForm() {
           <div className={styles.uploadMeta}>
             {formatBytes(uploadedBytes)} / {formatBytes(totalBytes)}
             {totalBytes > 50 * 1024 * 1024 && (
-              <span className={styles.largeFileNote}> · Gros fichier — cela peut prendre plusieurs minutes</span>
+              <span className={styles.largeFileNote}> · Gros fichier accepté jusqu&apos;à 500 MB</span>
             )}
           </div>
         </div>
