@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Studio App
 
-## Getting Started
+Studio App transforme des enregistrements audio de freestyle en textes, segments et contenus exploitables pour le travail studio.
 
-First, run the development server:
+## Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Local Transcription With faster-whisper
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The V1 transcription mode is local-first and does not require OpenAI.
 
-## Learn More
+Recommended `.env` values:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+TRANSCRIPTION_PROVIDER=local
+WHISPER_MODEL=small
+WHISPER_LANGUAGE=fr
+WHISPER_DEVICE=cpu
+WHISPER_COMPUTE_TYPE=int8
+TRANSCRIPTION_PYTHON_BIN=python3
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`TRANSCRIPTION_PROVIDER` can be:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `local`: default V1 mode, uses the Python `faster-whisper` worker.
+- `openai`: optional future mode, requires `OPENAI_API_KEY`.
+- `mock`: development/test fallback only.
 
-## Deploy on Vercel
+### Python Install
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+From the project root:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r workers/transcription/requirements.txt
+```
+
+If you use a virtualenv, set:
+
+```bash
+TRANSCRIPTION_PYTHON_BIN=.venv/bin/python
+```
+
+### Test The Worker Directly
+
+```bash
+source .venv/bin/activate
+python3 workers/transcription/transcribe.py storage_uploads/example.m4a --model small --language fr
+```
+
+The script writes progress logs to stderr and final JSON to stdout:
+
+- `rawText`
+- `segments`
+- `startTime`
+- `endTime`
+- confidence/probability fields when available
+
+### Model Choice
+
+Start with `small` for faster tests on Mac. Use `medium` only if local performance is acceptable.
+
+```bash
+WHISPER_MODEL=small
+```
+
+### Known Limits
+
+- Very long files can take a long time on CPU.
+- First run downloads the selected model.
+- `faster-whisper` runs inside the local Python environment, so deployment must include Python dependencies and model storage.
+- The Node app owns jobs and database writes; the Python worker only transcribes one file and returns JSON.
