@@ -44,3 +44,6 @@ next-env.d.ts
 /src/generated/prisma
 storage_uploads
 dev.db
+
+# Python local environment
+.venv/
