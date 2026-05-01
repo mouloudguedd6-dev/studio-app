@@ -4,6 +4,8 @@ import { useState } from "react"
 import { Play, BookmarkPlus, BookmarkCheck } from "lucide-react"
 import { toggleFavoriteSegment } from "../../actions/collection"
 import { playAudioExclusively } from "@/lib/audio-playback"
+import { SuspiciousText } from "@/components/text/SuspiciousText"
+import type { SuspiciousWord } from "@/lib/text-processing/clean-lyrics"
 import styles from "./textDetail.module.css"
 
 type SegmentRowData = {
@@ -16,11 +18,13 @@ type SegmentRowData = {
 export default function SegmentRow({ 
   segment, 
   audioPath,
-  isInitiallyFavorited 
+  isInitiallyFavorited,
+  suspiciousWords,
 }: { 
   segment: SegmentRowData, 
   audioPath: string,
-  isInitiallyFavorited: boolean 
+  isInitiallyFavorited: boolean
+  suspiciousWords: SuspiciousWord[]
 }) {
   const [isFav, setIsFav] = useState(isInitiallyFavorited)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -48,9 +52,12 @@ export default function SegmentRow({
       <div className={styles.timecode}>
         {Math.floor(segment.startTime / 60)}:{(segment.startTime % 60).toString().padStart(2, '0').substring(0,2)}
       </div>
-      <div className={styles.textLine}>
-        {segment.text}
-      </div>
+      <SuspiciousText
+        text={segment.text}
+        suspiciousWords={suspiciousWords}
+        className={styles.textLine}
+        suspiciousClassName={styles.suspiciousWord}
+      />
       <div className={styles.lineActions}>
         <button className={styles.iconBtn} onClick={playSegment} title="Écouter cet extrait">
           <Play size={16} fill={isPlaying ? "currentColor" : "none"} />

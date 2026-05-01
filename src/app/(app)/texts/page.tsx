@@ -2,8 +2,9 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import styles from "./texts.module.css"
-import { Library, Clock, AlignLeft } from "lucide-react"
+import { Library, Clock, AlignLeft, PencilLine } from "lucide-react"
 import Link from "next/link"
+import { parseSuspiciousWords } from "@/lib/text-processing/clean-lyrics"
 
 export default async function TextsLibraryPage() {
   const session = await getServerSession(authOptions)
@@ -49,28 +50,46 @@ export default async function TextsLibraryPage() {
           </div>
         ) : (
           <div className={styles.grid}>
-            {audios.map((audio) => (
-              <Link href={`/texts/${audio.id}`} key={audio.id} className={styles.card}>
-                <div className={styles.cardHeader}>
-                  <div className={styles.cardIcon}>
-                    <AlignLeft size={20} />
+            {audios.map((audio) => {
+              const transcription = audio.transcription
+              const previewText = transcription?.lyricsText || transcription?.cleanText || transcription?.rawText || ""
+              const suspiciousCount = parseSuspiciousWords(transcription?.suspiciousWords).length
+
+              return (
+                <div key={audio.id} className={styles.card}>
+                  <Link href={`/texts/${audio.id}`} className={styles.cardMainLink}>
+                    <div className={styles.cardHeader}>
+                      <div className={styles.cardIcon}>
+                        <AlignLeft size={20} />
+                      </div>
+                      <h3 className={styles.cardTitle} title={audio.title}>{audio.title}</h3>
+                    </div>
+                    
+                    <div className={styles.cardMeta}>
+                      <span><Clock size={14} /> {audio.createdAt.toLocaleDateString('fr-FR')}</span>
+                      <span className={styles.segmentCount}>
+                        {transcription?._count?.segments || 0} lignes
+                      </span>
+                    </div>
+                    
+                    <p className={styles.preview}>
+                      {previewText.substring(0, 100) || "Aucun texte..."}
+                      {previewText.length > 100 ? "..." : ""}
+                    </p>
+                  </Link>
+
+                  <div className={styles.cardFooter}>
+                    <span className={suspiciousCount > 0 ? styles.warningBadge : styles.cleanBadge}>
+                      {suspiciousCount > 0 ? `${suspiciousCount} à vérifier` : "Clean lyrics prêt"}
+                    </span>
+                    <Link href={`/texts/${audio.id}/write`} className={styles.writeLink}>
+                      <PencilLine size={14} />
+                      Atelier
+                    </Link>
                   </div>
-                  <h3 className={styles.cardTitle}>{audio.title}</h3>
                 </div>
-                
-                <div className={styles.cardMeta}>
-                  <span><Clock size={14} /> {audio.createdAt.toLocaleDateString('fr-FR')}</span>
-                  <span className={styles.segmentCount}>
-                    {audio.transcription?._count?.segments || 0} lignes
-                  </span>
-                </div>
-                
-                <p className={styles.preview}>
-                  {audio.transcription?.cleanText?.substring(0, 100) || "Aucun texte..."}
-                  {(audio.transcription?.cleanText?.length || 0) > 100 ? "..." : ""}
-                </p>
-              </Link>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

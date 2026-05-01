@@ -16,6 +16,7 @@ model User {
   audioRecords  AudioRecord[]
   collections   Collection[]
   studioSessions StudioSession[]
+  glossaryEntries GlossaryEntry[]
 }
 
 model DaProfile {
@@ -65,7 +66,28 @@ model Transcription {
   audioRecord   AudioRecord @relation(fields: [audioRecordId], references: [id], onDelete: Cascade)
   rawText       String?
   cleanText     String?
+  lyricsText    String?
+  suspiciousWords String?
+  validatedWords String?
+  lyricsEditedByUser Boolean @default(false)
+  cleanLyricsGeneratedAt DateTime?
+  lyricsUpdatedAt DateTime?
   segments      Segment[]
+}
+
+model GlossaryEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  term       String
+  correction String?
+  category   String?
+  source     String   @default("user")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, term])
+  @@index([userId])
 }
 
 model Segment {

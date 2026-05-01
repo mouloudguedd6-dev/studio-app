@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { StorageService } from "@/lib/storage"
 import { getTranscriptionProvider } from "@/lib/transcription/provider"
 import type { TranscriptionResult } from "@/lib/transcription/types"
+import { generateCleanLyrics, serializeSuspiciousWords } from "@/lib/text-processing/clean-lyrics"
+import { getUserGlossary } from "@/lib/text-processing/glossary-service"
 
 export const TranscriptionJobStatus = {
   PENDING: "PENDING",
@@ -221,6 +223,13 @@ async function processTranscriptionJob(jobId: string) {
 }
 
 async function persistTranscription(audioId: string, result: TranscriptionResult) {
+  const audio = await prisma.audioRecord.findUnique({
+    where: { id: audioId },
+    select: { userId: true },
+  })
+  const glossary = audio ? await getUserGlossary(audio.userId) : undefined
+  const cleanLyrics = generateCleanLyrics(result.rawText, result.segments, { glossary })
+
   await prisma.$transaction(async (tx) => {
     await tx.transcription.deleteMany({ where: { audioRecordId: audioId } })
 
@@ -228,7 +237,11 @@ async function persistTranscription(audioId: string, result: TranscriptionResult
       data: {
         audioRecordId: audioId,
         rawText: result.rawText,
-        cleanText: result.rawText,
+        cleanText: cleanLyrics.cleanText,
+        lyricsText: cleanLyrics.lyricsText,
+        suspiciousWords: serializeSuspiciousWords(cleanLyrics.suspiciousWords),
+        lyricsEditedByUser: false,
+        cleanLyricsGeneratedAt: new Date(),
         segments: {
           create: result.segments.map((segment) => ({
             text: segment.text,

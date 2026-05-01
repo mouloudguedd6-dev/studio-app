@@ -4,16 +4,24 @@ import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import styles from "./textDetail.module.css"
 import Link from "next/link"
-import { ArrowLeft, BookmarkPlus, Mic2 } from "lucide-react"
+import { ArrowLeft, BookmarkPlus, Mic2, PencilLine } from "lucide-react"
 import SegmentRow from "./SegmentRow"
+import GenerateCleanLyricsButton from "./GenerateCleanLyricsButton"
+import { SuspiciousText } from "@/components/text/SuspiciousText"
+import { parseSuspiciousWords } from "@/lib/text-processing/clean-lyrics"
 
 export default async function TextDetailPage(
-  props: { params: Promise<{ id: string }> }
+  props: {
+    params: Promise<{ id: string }>
+    searchParams?: Promise<{ view?: string }>
+  }
 ) {
   const session = await getServerSession(authOptions)
   if (!session || !session.user?.email) return <div>Non autorisé</div>
 
   const params = await props.params
+  const searchParams = await props.searchParams
+  const selectedView = searchParams?.view === "raw" || searchParams?.view === "clean" ? searchParams.view : "lyrics"
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } })
   const audio = await prisma.audioRecord.findFirst({
@@ -35,6 +43,12 @@ export default async function TextDetailPage(
   }
 
   const { transcription } = audio
+  const rawText = transcription.rawText || ""
+  const cleanText = transcription.cleanText || rawText
+  const lyricsText = transcription.lyricsText || cleanText
+  const suspiciousWords = parseSuspiciousWords(transcription.suspiciousWords)
+  const displayedText = selectedView === "raw" ? rawText : selectedView === "clean" ? cleanText : lyricsText
+  const viewLabel = selectedView === "raw" ? "Texte brut" : selectedView === "clean" ? "Texte clean" : "Lyrics"
 
   return (
     <div className={styles.container}>
@@ -45,6 +59,14 @@ export default async function TextDetailPage(
             Retour
           </Link>
           <div className={styles.actions}>
+            <Link href={`/texts/${audio.id}/write`} className={styles.secondaryBtn}>
+              <PencilLine size={16} />
+              Ouvrir l&apos;atelier d&apos;écriture
+            </Link>
+            <GenerateCleanLyricsButton
+              audioId={audio.id}
+              hasUserEditedLyrics={transcription.lyricsEditedByUser}
+            />
             {/* V1: boutons passifs / UI placeholders for collections */}
             <button className={styles.secondaryBtn}>
               <BookmarkPlus size={16} />
@@ -64,15 +86,52 @@ export default async function TextDetailPage(
       </header>
 
       <div className={styles.content}>
+        <section className={styles.textPanel}>
+          <div className={styles.textPanelHeader}>
+            <div>
+              <h2>{viewLabel}</h2>
+              <p>{suspiciousWords.length} mot(s) douteux à vérifier</p>
+            </div>
+            <div className={styles.viewSwitch}>
+              <Link
+                href={`/texts/${audio.id}?view=raw`}
+                className={`${styles.viewBtn} ${selectedView === "raw" ? styles.viewBtnActive : ""}`}
+              >
+                Voir brut
+              </Link>
+              <Link
+                href={`/texts/${audio.id}?view=clean`}
+                className={`${styles.viewBtn} ${selectedView === "clean" ? styles.viewBtnActive : ""}`}
+              >
+                Voir clean
+              </Link>
+              <Link
+                href={`/texts/${audio.id}?view=lyrics`}
+                className={`${styles.viewBtn} ${selectedView === "lyrics" ? styles.viewBtnActive : ""}`}
+              >
+                Voir lyrics
+              </Link>
+            </div>
+          </div>
+
+          <SuspiciousText
+            text={displayedText || "Aucun texte disponible."}
+            suspiciousWords={suspiciousWords}
+            className={styles.fullText}
+            suspiciousClassName={styles.suspiciousWord}
+          />
+        </section>
+
         <div className={styles.segmentsList}>
           {transcription.segments.map((segment) => {
-            const isFav = segment.collections.some((c: any) => c.type === 'favorites')
+            const isFav = segment.collections.some((collection) => collection.type === "favorites")
             return (
               <SegmentRow 
                 key={segment.id} 
                 segment={segment} 
                 audioPath={audio.filePath} 
                 isInitiallyFavorited={isFav} 
+                suspiciousWords={suspiciousWords}
               />
             )
           })}
