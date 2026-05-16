@@ -14,6 +14,8 @@ model User {
   password      String?
   daProfile     DaProfile?
   audioRecords  AudioRecord[]
+  instrumentals Instrumental[]
+  suggestedInstrumentalReferences SuggestedInstrumentalReference[]
   collections   Collection[]
   studioSessions StudioSession[]
   glossaryEntries GlossaryEntry[]
@@ -23,10 +25,32 @@ model DaProfile {
   id                String   @id @default(cuid())
   userId            String   @unique
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artistIdentity    String?
   artistsRef        String?
   moods             String?
   instrumentalStyles String?
   influences        String?
+  artisticDirection String?
+  artisticNotes     String?
+  updatedAt         DateTime @updatedAt @default(now())
+}
+
+model SuggestedInstrumentalReference {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  youtubeUrl      String?
+  mood            String?
+  style           String?
+  bpm             Int?
+  note            String?
+  referenceArtist String?
+  scope           String   @default("artist")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model AudioRecord {
@@ -73,6 +97,32 @@ model Transcription {
   cleanLyricsGeneratedAt DateTime?
   lyricsUpdatedAt DateTime?
   segments      Segment[]
+  textAnalysis  TextAnalysis?
+}
+
+model TextAnalysis {
+  id                                  String        @id @default(cuid())
+  transcriptionId                     String        @unique
+  transcription                       Transcription @relation(fields: [transcriptionId], references: [id], onDelete: Cascade)
+  provider                            String        @default("local")
+  themesJson                          String        @default("[]")
+  moodJson                            String        @default("[]")
+  energyScore                         Int           @default(0)
+  lyricalScore                        Int           @default(0)
+  punchlineScore                      Int           @default(0)
+  hookScore                           Int           @default(0)
+  daCompatibilityScore                Int           @default(0)
+  instrumentalCompatibilityScore      Int           @default(0)
+  globalScore                         Int           @default(0)
+  summary                             String        @default("")
+  strengthsJson                       String        @default("[]")
+  weaknessesJson                      String        @default("[]")
+  suggestedUse                        String        @default("à retravailler")
+  punchlineCandidatesJson             String        @default("[]")
+  hookCandidatesJson                  String        @default("[]")
+  compatibleInstrumentalsJson         String        @default("[]")
+  createdAt                           DateTime      @default(now())
+  updatedAt                           DateTime      @updatedAt
 }
 
 model GlossaryEntry {
@@ -149,12 +199,31 @@ model StudioPackSegment {
 }
 
 model Instrumental {
-  id          String     @id @default(cuid())
-  name        String
-  youtubeUrl  String?
-  localPath   String?
-  bpm         Int?
-  maquettes   Maquette[]
+  id              String     @id @default(cuid())
+  userId          String?
+  user            User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  youtubeUrl      String?
+  localPath       String?
+  duration        Int?
+  fileSize        Int?
+  mimeType        String?
+  format          String?
+  checksum        String?
+  bpm             Int?
+  musicalKey      String?
+  mood            String?
+  style           String?
+  referenceArtist String?
+  rightsStatus    String     @default("inconnu")
+  notes           String?
+  scope           String     @default("available")
+  createdAt       DateTime?  @default(now())
+  updatedAt       DateTime?  @updatedAt
+  maquettes       Maquette[]
+
+  @@index([userId])
+  @@index([scope])
 }
 
 model Maquette {

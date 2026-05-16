@@ -7,8 +7,11 @@ import Link from "next/link"
 import { ArrowLeft, BookmarkPlus, Mic2, PencilLine } from "lucide-react"
 import SegmentRow from "./SegmentRow"
 import GenerateCleanLyricsButton from "./GenerateCleanLyricsButton"
+import AnalyzeTextButton from "./AnalyzeTextButton"
+import TextAnalysisPanel from "./TextAnalysisPanel"
 import { SuspiciousText } from "@/components/text/SuspiciousText"
 import { parseSuspiciousWords } from "@/lib/text-processing/clean-lyrics"
+import { toSerializableAnalysis } from "@/lib/text-analysis/json"
 
 export default async function TextDetailPage(
   props: {
@@ -32,7 +35,8 @@ export default async function TextDetailPage(
           segments: {
             orderBy: { startTime: 'asc' },
             include: { collections: true, themes: true }
-          }
+          },
+          textAnalysis: true,
         }
       }
     }
@@ -67,6 +71,7 @@ export default async function TextDetailPage(
               audioId={audio.id}
               hasUserEditedLyrics={transcription.lyricsEditedByUser}
             />
+            <AnalyzeTextButton audioId={audio.id} />
             {/* V1: boutons passifs / UI placeholders for collections */}
             <button className={styles.secondaryBtn}>
               <BookmarkPlus size={16} />
@@ -121,6 +126,10 @@ export default async function TextDetailPage(
             suspiciousClassName={styles.suspiciousWord}
           />
         </section>
+
+        <TextAnalysisPanel
+          analysis={transcription.textAnalysis ? toSerializableAnalysis(transcription.textAnalysis) : null}
+        />
 
         <div className={styles.segmentsList}>
           {transcription.segments.map((segment) => {

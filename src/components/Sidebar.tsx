@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
-import { Library, Mic2, Search, Settings, Calendar, LogOut, Disc, BookmarkCheck, BookOpenText } from "lucide-react"
+import { Library, Mic2, Search, Settings, Calendar, LogOut, Disc, BookmarkCheck, BookOpenText, Music } from "lucide-react"
 import styles from "./sidebar.module.css"
 
 export function Sidebar() {
@@ -12,6 +12,7 @@ export function Sidebar() {
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: Disc },
     { name: "Bibliothèque Audio", href: "/audio", icon: Mic2 },
+    { name: "Instrumentales", href: "/instrumentals", icon: Music },
     { name: "Textes & Thèmes", href: "/texts", icon: Library },
     { name: "Glossaire", href: "/glossary", icon: BookOpenText },
     { name: "Punchlines", href: "/favorites", icon: BookmarkCheck },
